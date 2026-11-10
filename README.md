@@ -34,8 +34,7 @@ Dokumen pendukung:
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
 ---
@@ -46,6 +45,14 @@ pip install -r requirements.txt
 
 > **Peringatan deadlock:** Cara 1 (`process_and_report` + `.get()` di dalam worker) **wajib** multi-worker. Jangan pakai single-worker + pool solo untuk Cara 1.
 
+> **Penting (Windows PATH):** Jangan andalkan perintah `celery` atau `python` setelah `activate`. Di banyak mesin Windows, `(.venv)` sudah muncul tapi PATH masih salah → error `'celery' is not recognized` atau `ModuleNotFoundError: No module named 'celery'`.  
+> **Selalu panggil lewat Python di venv:**
+> ```cmd
+> .\.venv\Scripts\python.exe -m celery ...
+> .\.venv\Scripts\python.exe producer.py
+> ```
+> Helper `.bat` di repo ini sudah memakai pola yang sama.
+
 ### Skenario 1: Task Chaining (`producer.py`)
 
 #### Opsi A: Multi-Worker (WAJIB untuk demo lengkap Cara 1 + Cara 2)
@@ -53,57 +60,50 @@ pip install -r requirements.txt
 Buka 4 terminal (atau jalankan `start_workers.bat` lalu 1 terminal producer):
 
 **Terminal 1 — Worker Data Processing**
-```powershell
-.\.venv\Scripts\activate
-celery -A celery_config worker --loglevel=info -P solo -n worker_dp@%h -Q data_processing
+```cmd
+.\.venv\Scripts\python.exe -m celery -A celery_config worker --loglevel=info -P solo -n worker_dp@%h -Q data_processing
 ```
 
 **Terminal 2 — Worker Report Generation**
-```powershell
-.\.venv\Scripts\activate
-celery -A celery_config worker --loglevel=info -P solo -n worker_rg@%h -Q report_generation
+```cmd
+.\.venv\Scripts\python.exe -m celery -A celery_config worker --loglevel=info -P solo -n worker_rg@%h -Q report_generation
 ```
 
 **Terminal 3 — Worker Default / Orchestrator**
-```powershell
-.\.venv\Scripts\activate
-celery -A celery_config worker --loglevel=info -P solo -n worker_def@%h -Q default
+```cmd
+.\.venv\Scripts\python.exe -m celery -A celery_config worker --loglevel=info -P solo -n worker_def@%h -Q default
 ```
 
 **Terminal 4 — Producer**
-```powershell
-.\.venv\Scripts\activate
-python producer.py
+```cmd
+.\.venv\Scripts\python.exe producer.py
 ```
 
 #### Opsi B: Single-Worker (hanya aman untuk uji cepat Cara 2 / chain)
 
-```powershell
-.\.venv\Scripts\activate
-celery -A celery_config worker --loglevel=info -P solo -Q default,data_processing,report_generation
+```cmd
+.\.venv\Scripts\python.exe -m celery -A celery_config worker --loglevel=info -P solo -Q default,data_processing,report_generation
 ```
 
 Lalu di terminal lain:
-```powershell
-python -c "from run_chain import create_task_chain; print(create_task_chain('uji chain').get())"
+```cmd
+.\.venv\Scripts\python.exe -c "from run_chain import create_task_chain; print(create_task_chain('uji chain').get())"
 ```
 
-> Opsi B **tidak** cocok untuk `python producer.py` utuh karena Cara 1 akan deadlock pada pool solo.
+> Opsi B **tidak** cocok untuk `producer.py` utuh karena Cara 1 akan deadlock pada pool solo.
 
 ---
 
 ### Skenario 2: Routing Fanout & Topic (`producer_routing.py`)
 
 **Terminal 1 — Worker Routing** (atau `start_routing_worker.bat`)
-```powershell
-.\.venv\Scripts\activate
-celery -A celery_config worker --loglevel=info -P solo -Q fanout_queue_1,fanout_queue_2,error_logs_queue,all_logs_queue
+```cmd
+.\.venv\Scripts\python.exe -m celery -A celery_config worker --loglevel=info -P solo -Q fanout_queue_1,fanout_queue_2,error_logs_queue,all_logs_queue
 ```
 
 **Terminal 2 — Producer Routing**
-```powershell
-.\.venv\Scripts\activate
-python producer_routing.py
+```cmd
+.\.venv\Scripts\python.exe producer_routing.py
 ```
 
 Hasil yang diharapkan di log worker:
@@ -115,9 +115,8 @@ Hasil yang diharapkan di log worker:
 
 ### Skenario 3: Flower Dashboard
 
-```powershell
-.\.venv\Scripts\activate
-celery -A celery_config flower
+```cmd
+.\.venv\Scripts\python.exe -m celery -A celery_config flower
 ```
 
 Buka: `http://localhost:5555`
